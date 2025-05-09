@@ -24,22 +24,6 @@ export async function generateAesKey(): Promise<CryptoKey> {
   );
 }
 
-export async function exportCryptoKeyToJwk(key: CryptoKey): Promise<string> {
-  const jwk = await window.crypto.subtle.exportKey('jwk', key);
-  return JSON.stringify(jwk, null, 2);
-}
-
-export function arrayBufferToHex(buffer: ArrayBuffer): string {
-  return Array.from(new Uint8Array(buffer))
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('');
-}
-
-export function hexToArrayBuffer(hex: string): ArrayBuffer {
-  const typedArray = new Uint8Array(hex.match(/[\da-f]{2}/gi)!.map(h => parseInt(h, 16)));
-  return typedArray.buffer;
-}
-
 export function arrayBufferToBase64(buffer: ArrayBuffer): string {
   let binary = '';
   const bytes = new Uint8Array(buffer);
@@ -59,6 +43,36 @@ export function base64ToArrayBuffer(base64: string): ArrayBuffer {
   }
   return bytes.buffer;
 }
+
+// Helper function to format a base64 string into PEM format
+function toPem(dataBuffer: ArrayBuffer, type: 'PUBLIC' | 'PRIVATE'): string {
+  const base64String = arrayBufferToBase64(dataBuffer);
+  const header = `-----BEGIN ${type} KEY-----`;
+  const footer = `-----END ${type} KEY-----`;
+  
+  let pemString = `${header}\n`;
+  for (let i = 0; i < base64String.length; i += 64) {
+    pemString += base64String.substring(i, Math.min(i + 64, base64String.length)) + '\n';
+  }
+  pemString += footer;
+  return pemString;
+}
+
+export async function exportRsaPublicKeyToPem(key: CryptoKey): Promise<string> {
+  const spkiBuffer = await window.crypto.subtle.exportKey('spki', key);
+  return toPem(spkiBuffer, 'PUBLIC');
+}
+
+export async function exportRsaPrivateKeyToPem(key: CryptoKey): Promise<string> {
+  const pkcs8Buffer = await window.crypto.subtle.exportKey('pkcs8', key);
+  return toPem(pkcs8Buffer, 'PRIVATE');
+}
+
+export async function exportAesKeyToRawBase64(key: CryptoKey): Promise<string> {
+  const rawBuffer = await window.crypto.subtle.exportKey('raw', key);
+  return arrayBufferToBase64(rawBuffer);
+}
+
 
 export async function encryptMessageAesGcm(
   message: string,
@@ -133,3 +147,15 @@ export async function decryptAesKeyMaterialWithRsa(
     ['encrypt', 'decrypt']
   );
 }
+
+// Deprecated or unused functions from original file - kept for reference if needed, but typically removed.
+// export function arrayBufferToHex(buffer: ArrayBuffer): string {
+//   return Array.from(new Uint8Array(buffer))
+//     .map(b => b.toString(16).padStart(2, '0'))
+//     .join('');
+// }
+
+// export function hexToArrayBuffer(hex: string): ArrayBuffer {
+//   const typedArray = new Uint8Array(hex.match(/[\da-f]{2}/gi)!.map(h => parseInt(h, 16)));
+//   return typedArray.buffer;
+// }
