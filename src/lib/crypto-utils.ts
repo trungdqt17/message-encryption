@@ -6,7 +6,7 @@ export async function generateRsaKeyPair(): Promise<{ publicKey: CryptoKey; priv
       name: 'RSA-OAEP',
       modulusLength: 2048,
       publicExponent: new Uint8Array([1, 0, 1]),
-      hash: 'SHA-256',
+      hash: 'SHA-1', // Changed from SHA-256 to SHA-1
     },
     true, // exportable
     ['encrypt', 'decrypt'] // private key can decrypt, public key can encrypt

@@ -87,9 +87,9 @@ export function KeyGenerationTab({
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-xl">
             <ShieldCheckIcon className="h-6 w-6 text-primary" />
-            RSA Key Pair (RSA-OAEP, SHA-256)
+            RSA Key Pair (RSA-OAEP, SHA-1)
           </CardTitle>
-          <CardDescription>Generate a public/private key pair for asymmetric encryption. Exported in PEM format.</CardDescription>
+          <CardDescription>Generate a public/private key pair for asymmetric encryption (using SHA-1). Exported in PEM format.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <Button onClick={handleGenerateRsaKeys} disabled={isGeneratingRsa} className="w-full sm:w-auto">
