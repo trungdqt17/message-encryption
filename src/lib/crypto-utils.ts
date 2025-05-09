@@ -1,4 +1,22 @@
 // src/lib/crypto-utils.ts
+import CryptoJS from 'crypto-js';
+
+// Helper function to convert ArrayBuffer to CryptoJS.lib.WordArray
+function arrayBufferToWordArray(buffer: ArrayBuffer): CryptoJS.lib.WordArray {
+  const typedArray = new Uint8Array(buffer);
+  return CryptoJS.lib.WordArray.create(typedArray as unknown as number[]);
+}
+
+// Helper function to convert CryptoJS.lib.WordArray to ArrayBuffer
+function wordArrayToArrayBuffer(wordArray: CryptoJS.lib.WordArray): ArrayBuffer {
+  const { words, sigBytes } = wordArray;
+  const u8 = new Uint8Array(sigBytes);
+  for (let i = 0; i < sigBytes; i++) {
+    u8[i] = (words[i >>> 2] >>> (24 - (i % 4) * 8)) & 0xff;
+  }
+  return u8.buffer;
+}
+
 
 export async function generateRsaKeyPair(): Promise<{ publicKey: CryptoKey; privateKey: CryptoKey }> {
   return window.crypto.subtle.generateKey(
@@ -6,10 +24,10 @@ export async function generateRsaKeyPair(): Promise<{ publicKey: CryptoKey; priv
       name: 'RSA-OAEP',
       modulusLength: 2048,
       publicExponent: new Uint8Array([1, 0, 1]),
-      hash: 'SHA-1', // Changed from SHA-256 to SHA-1
+      hash: 'SHA-1', // Using SHA-1 as requested
     },
     true, // exportable
-    ['encrypt', 'decrypt'] // private key can decrypt, public key can encrypt
+    ['encrypt', 'decrypt']
   );
 }
 
@@ -44,7 +62,6 @@ export function base64ToArrayBuffer(base64: string): ArrayBuffer {
   return bytes.buffer;
 }
 
-// Helper function to format a base64 string into PEM format
 function toPem(dataBuffer: ArrayBuffer, type: 'PUBLIC' | 'PRIVATE'): string {
   const base64String = arrayBufferToBase64(dataBuffer);
   const header = `-----BEGIN ${type} KEY-----`;
@@ -73,47 +90,60 @@ export async function exportAesKeyToRawBase64(key: CryptoKey): Promise<string> {
   return arrayBufferToBase64(rawBuffer);
 }
 
-
 export async function encryptMessageAesGcm(
   message: string,
-  key: CryptoKey
+  aesKey: CryptoKey
 ): Promise<{ ciphertext: ArrayBuffer; iv: ArrayBuffer }> {
-  const iv = window.crypto.getRandomValues(new Uint8Array(12)); // Recommended IV size for AES-GCM is 12 bytes
-  const encodedMessage = new TextEncoder().encode(message);
-  const ciphertext = await window.crypto.subtle.encrypt(
-    {
-      name: 'AES-GCM',
-      iv: iv,
-    },
-    key,
-    encodedMessage
-  );
-  return { ciphertext, iv };
+  const rawAesKeyBuffer = await window.crypto.subtle.exportKey('raw', aesKey);
+  const keyWordArray = arrayBufferToWordArray(rawAesKeyBuffer);
+
+  // CryptoJS GCM usually expects a 12-byte IV.
+  const ivArrayBuffer = window.crypto.getRandomValues(new Uint8Array(12));
+  const ivWordArray = arrayBufferToWordArray(ivArrayBuffer);
+  
+  const messageUtf8 = CryptoJS.enc.Utf8.parse(message);
+
+  const encrypted = CryptoJS.AES.encrypt(messageUtf8, keyWordArray, {
+    iv: ivWordArray,
+    mode: CryptoJS.mode.GCM,
+    padding: CryptoJS.pad.NoPadding, // GCM does not use padding
+  });
+  
+  // encrypted.ciphertext is a WordArray
+  const ciphertextArrayBuffer = wordArrayToArrayBuffer(encrypted.ciphertext);
+
+  return { ciphertext: ciphertextArrayBuffer, iv: ivArrayBuffer };
 }
 
 export async function decryptMessageAesGcm(
   ciphertext: ArrayBuffer,
   iv: ArrayBuffer,
-  key: CryptoKey
+  aesKey: CryptoKey
 ): Promise<string> {
-  const decrypted = await window.crypto.subtle.decrypt(
-    {
-      name: 'AES-GCM',
-      iv: iv,
-    },
-    key,
-    ciphertext
-  );
-  return new TextDecoder().decode(decrypted);
+  const rawAesKeyBuffer = await window.crypto.subtle.exportKey('raw', aesKey);
+  const keyWordArray = arrayBufferToWordArray(rawAesKeyBuffer);
+  const ivWordArray = arrayBufferToWordArray(iv);
+  const ciphertextWordArray = arrayBufferToWordArray(ciphertext);
+
+  // Create a CipherParams object for decryption
+  const cipherParams = CryptoJS.lib.CipherParams.create({
+    ciphertext: ciphertextWordArray,
+  });
+
+  const decrypted = CryptoJS.AES.decrypt(cipherParams, keyWordArray, {
+    iv: ivWordArray,
+    mode: CryptoJS.mode.GCM,
+    padding: CryptoJS.pad.NoPadding, // GCM does not use padding
+  });
+  
+  return decrypted.toString(CryptoJS.enc.Utf8);
 }
 
 export async function encryptAesKeyMaterialWithRsa(
   aesKey: CryptoKey,
   rsaPublicKey: CryptoKey
 ): Promise<ArrayBuffer> {
-  // Export the AES key as raw bytes
   const rawAesKey = await window.crypto.subtle.exportKey('raw', aesKey);
-  // Encrypt the raw AES key bytes with RSA-OAEP
   return window.crypto.subtle.encrypt(
     {
       name: 'RSA-OAEP',
@@ -127,7 +157,6 @@ export async function decryptAesKeyMaterialWithRsa(
   encryptedAesKeyMaterial: ArrayBuffer,
   rsaPrivateKey: CryptoKey
 ): Promise<CryptoKey> {
-  // Decrypt the raw AES key bytes
   const decryptedRawAesKey = await window.crypto.subtle.decrypt(
     {
       name: 'RSA-OAEP',
@@ -135,27 +164,14 @@ export async function decryptAesKeyMaterialWithRsa(
     rsaPrivateKey,
     encryptedAesKeyMaterial
   );
-  // Import the decrypted raw bytes back into an AES-GCM CryptoKey
   return window.crypto.subtle.importKey(
     'raw',
     decryptedRawAesKey,
     {
       name: 'AES-GCM',
-      length: 256, // Ensure this matches the original key length
+      length: 256,
     },
-    true, // exportable
+    true, 
     ['encrypt', 'decrypt']
   );
 }
-
-// Deprecated or unused functions from original file - kept for reference if needed, but typically removed.
-// export function arrayBufferToHex(buffer: ArrayBuffer): string {
-//   return Array.from(new Uint8Array(buffer))
-//     .map(b => b.toString(16).padStart(2, '0'))
-//     .join('');
-// }
-
-// export function hexToArrayBuffer(hex: string): ArrayBuffer {
-//   const typedArray = new Uint8Array(hex.match(/[\da-f]{2}/gi)!.map(h => parseInt(h, 16)));
-//   return typedArray.buffer;
-// }
