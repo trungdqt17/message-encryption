@@ -6,25 +6,19 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription }  from '@/components/ui/card';
 import { OutputField } from './output-field';
-import {
-  encryptAesKeyMaterialWithRsa,
-  decryptAesKeyMaterialWithRsa,
-  exportAesKeyToRawBase64, // Changed from exportCryptoKeyToJwk
-  arrayBufferToBase64,
-  base64ToArrayBuffer,
-} from '@/lib/crypto-utils';
+import { decryptAesKeyMaterialWithRsa, encryptAesKeyMaterialWithRsa } from '@/lib/crypto-utils';
 import { useToast } from '@/hooks/use-toast';
 import { KeyRoundIcon, LockKeyholeIcon, UnlockKeyholeIcon } from 'lucide-react';
 
 interface AesKeyOperationsTabProps {
-  aesKey: CryptoKey | null;
-  rsaPublicKey: CryptoKey | null;
-  rsaPrivateKey: CryptoKey | null;
-  encryptedAesKeyMaterialBase64: string | null;
-  setEncryptedAesKeyMaterialBase64: (data: string | null) => void;
-  setRawEncryptedAesKeyMaterial: (data: ArrayBuffer | null) => void;
-  decryptedAesKeyForVerification: CryptoKey | null;
-  setDecryptedAesKeyForVerification: (key: CryptoKey | null) => void;
+  aesKey: string;
+  rsaPublicKey: string;
+  rsaPrivateKey: string;
+  encryptedAesKeyMaterialBase64: string;
+  setEncryptedAesKeyMaterialBase64: (data: string) => void;
+  setRawEncryptedAesKeyMaterial: (data: string) => void;
+  decryptedAesKeyForVerification: string;
+  setDecryptedAesKeyForVerification: (key: string) => void;
 }
 
 export function AesKeyOperationsTab({
@@ -39,7 +33,7 @@ export function AesKeyOperationsTab({
 }: AesKeyOperationsTabProps) {
   const [isEncryptingAes, setIsEncryptingAes] = useState(false);
   const [isDecryptingAes, setIsDecryptingAes] = useState(false);
-  const [decryptedAesKeyRawBase64, setDecryptedAesKeyRawBase64] = useState<string | null>(null); // Changed from decryptedAesKeyJwk
+  const [decryptedAesKeyRawBase64, setDecryptedAesKeyRawBase64] = useState<string>(''); // Changed from decryptedAesKeyJwk
 
   const [encryptSuccess, setEncryptSuccess] = useState(false);
   const [decryptSuccess, setDecryptSuccess] = useState(false);
@@ -54,9 +48,9 @@ export function AesKeyOperationsTab({
     setIsEncryptingAes(true);
     setEncryptSuccess(false);
     try {
-      const encryptedMaterial = await encryptAesKeyMaterialWithRsa(aesKey, rsaPublicKey);
+      const encryptedMaterial = await encryptAesKeyMaterialWithRsa(rsaPublicKey, aesKey);
       setRawEncryptedAesKeyMaterial(encryptedMaterial);
-      setEncryptedAesKeyMaterialBase64(arrayBufferToBase64(encryptedMaterial));
+      setEncryptedAesKeyMaterialBase64(encryptedMaterial);
       setEncryptSuccess(true);
       toast({ title: "AES Key Encrypted", description: "AES key material encrypted with RSA public key.", variant: "default" });
       setTimeout(() => setEncryptSuccess(false), 1500);
@@ -75,10 +69,9 @@ export function AesKeyOperationsTab({
     setIsDecryptingAes(true);
     setDecryptSuccess(false);
     try {
-      const rawEncryptedMaterial = base64ToArrayBuffer(encryptedAesKeyMaterialBase64);
-      const decryptedKey = await decryptAesKeyMaterialWithRsa(rawEncryptedMaterial, rsaPrivateKey);
+      const decryptedKey = decryptAesKeyMaterialWithRsa(rsaPrivateKey, encryptedAesKeyMaterialBase64);
       setDecryptedAesKeyForVerification(decryptedKey);
-      setDecryptedAesKeyRawBase64(await exportAesKeyToRawBase64(decryptedKey)); // Changed from exportCryptoKeyToJwk
+      setDecryptedAesKeyRawBase64(decryptedKey); // Changed from exportCryptoKeyToJwk
       setDecryptSuccess(true);
       toast({ title: "AES Key Decrypted", description: "AES key material decrypted with RSA private key.", variant: "default" });
       setTimeout(() => setDecryptSuccess(false), 1500);

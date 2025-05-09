@@ -5,18 +5,18 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { OutputField } from './output-field';
-import { decryptMessageAesGcm, base64ToArrayBuffer } from '@/lib/crypto-utils';
+import { decryptAES } from '@/lib/crypto-utils';
 import { useToast } from '@/hooks/use-toast';
 import { Textarea } from '@/components/ui/textarea';
 import { UnlockIcon, MessageCircleIcon, HashIcon, KeyIcon } from 'lucide-react';
 
 interface MessageDecryptionTabProps {
   // Use either the originally generated AES key or the one decrypted via RSA
-  aesKeyToUseForDecryption: CryptoKey | null; 
-  rawEncryptedMessage: ArrayBuffer | null; // From encryption step
-  rawIv: ArrayBuffer | null; // From encryption step
-  decryptedMessage: string | null;
-  setDecryptedMessage: (message: string | null) => void;
+  aesKeyToUseForDecryption: string; 
+  rawEncryptedMessage: string; // From encryption step
+  rawIv: string; // From encryption step
+  decryptedMessage: string;
+  setDecryptedMessage: (message: string) => void;
 }
 
 export function MessageDecryptionTab({
@@ -36,10 +36,10 @@ export function MessageDecryptionTab({
   // Effect to prefill inputs if raw data exists (e.g., from previous encryption step)
   useEffect(() => {
     if (rawEncryptedMessage) {
-      setCiphertextInput(Buffer.from(rawEncryptedMessage).toString('base64'));
+      setCiphertextInput(rawEncryptedMessage);
     }
     if (rawIv) {
-      setIvInput(Buffer.from(rawIv).toString('base64'));
+      setIvInput(rawIv);
     }
   }, [rawEncryptedMessage, rawIv]);
 
@@ -56,10 +56,7 @@ export function MessageDecryptionTab({
     setIsDecrypting(true);
     setDecryptionSuccess(false);
     try {
-      const ciphertextBuffer = base64ToArrayBuffer(ciphertextInput);
-      const ivBuffer = base64ToArrayBuffer(ivInput);
-      
-      const decrypted = await decryptMessageAesGcm(ciphertextBuffer, ivBuffer, aesKeyToUseForDecryption);
+      const decrypted = decryptAES(ciphertextInput, aesKeyToUseForDecryption, ivInput);
       setDecryptedMessage(decrypted);
       setDecryptionSuccess(true);
       toast({ title: "Message Decrypted", description: "The original message has been recovered.", variant: "default" });
@@ -67,7 +64,7 @@ export function MessageDecryptionTab({
     } catch (error) {
       console.error("Message decryption error:", error);
       toast({ title: "Error", description: "Failed to decrypt message. Check keys, ciphertext, and IV.", variant: "destructive" });
-      setDecryptedMessage(null); // Clear previous decrypted message on error
+      setDecryptedMessage(''); // Clear previous decrypted message on error
     }
     setIsDecrypting(false);
   };

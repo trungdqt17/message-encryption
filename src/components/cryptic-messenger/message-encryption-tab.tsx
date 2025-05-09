@@ -6,18 +6,18 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { OutputField } from './output-field';
-import { encryptMessageAesGcm, arrayBufferToBase64 } from '@/lib/crypto-utils';
 import { useToast } from '@/hooks/use-toast';
 import { LockIcon, MessageSquareIcon } from 'lucide-react';
+import { encryptAES } from '@/lib/crypto-utils';
 
 interface MessageEncryptionTabProps {
-  aesKey: CryptoKey | null;
-  encryptedMessageBase64: string | null;
-  setEncryptedMessageBase64: (data: string | null) => void;
-  ivBase64: string | null;
-  setIvBase64: (data: string | null) => void;
-  setRawEncryptedMessage: (data: ArrayBuffer | null) => void;
-  setRawIv: (data: ArrayBuffer | null) => void;
+  aesKey: string;
+  encryptedMessageBase64: string;
+  setEncryptedMessageBase64: (data: string) => void;
+  ivBase64: string;
+  setIvBase64: (data: string) => void;
+  setRawEncryptedMessage: (data: string) => void;
+  setRawIv: (data: string) => void;
 }
 
 export function MessageEncryptionTab({
@@ -47,11 +47,13 @@ export function MessageEncryptionTab({
     setIsEncrypting(true);
     setEncryptionSuccess(false);
     try {
-      const { ciphertext, iv } = await encryptMessageAesGcm(messageToEncrypt, aesKey);
+      const { ciphertext, iv } = encryptAES(messageToEncrypt, aesKey);
+      console.log('ciphertext', ciphertext);
+      
       setRawEncryptedMessage(ciphertext);
       setRawIv(iv);
-      setEncryptedMessageBase64(arrayBufferToBase64(ciphertext));
-      setIvBase64(arrayBufferToBase64(iv));
+      setEncryptedMessageBase64((ciphertext));
+      setIvBase64((iv));
       setEncryptionSuccess(true);
       toast({ title: "Message Encrypted", description: "Ciphertext and IV are ready.", variant: "default" });
       setTimeout(() => setEncryptionSuccess(false), 1500);
@@ -74,7 +76,7 @@ export function MessageEncryptionTab({
       <CardContent className="space-y-4">
         <div className="space-y-1">
           <label htmlFor="message-input" className="text-sm font-medium text-foreground/80 flex items-center gap-1.5">
-             <MessageSquareIcon className="h-4 w-4" /> Message to Encrypt
+            <MessageSquareIcon className="h-4 w-4" /> Message to Encrypt
           </label>
           <Textarea
             id="message-input"

@@ -12,25 +12,25 @@ import { ShieldAlertIcon } from 'lucide-react';
 
 export default function CrypticMessengerPage() {
   // RSA Keys
-  const [rsaPublicKey, setRsaPublicKey] = useState<CryptoKey | null>(null);
-  const [rsaPrivateKey, setRsaPrivateKey] = useState<CryptoKey | null>(null);
+  const [rsaPublicKey, setRsaPublicKey] = useState<string>('');
+  const [rsaPrivateKey, setRsaPrivateKey] = useState<string>('');
 
   // AES Key
-  const [aesKey, setAesKey] = useState<CryptoKey | null>(null);
+  const [aesKey, setAesKey] = useState<string>("");
 
   // Message Encryption
-  const [rawEncryptedMessage, setRawEncryptedMessage] = useState<ArrayBuffer | null>(null);
-  const [encryptedMessageBase64, setEncryptedMessageBase64] = useState<string | null>(null);
-  const [rawIv, setRawIv] = useState<ArrayBuffer | null>(null);
-  const [ivBase64, setIvBase64] = useState<string | null>(null);
+  const [rawEncryptedMessage, setRawEncryptedMessage] = useState<string>('');
+  const [encryptedMessageBase64, setEncryptedMessageBase64] = useState<string>("");
+  const [rawIv, setRawIv] = useState<string>("");
+  const [ivBase64, setIvBase64] = useState<string>("");
 
   // AES Key Encryption/Decryption
-  const [rawEncryptedAesKeyMaterial, setRawEncryptedAesKeyMaterial] = useState<ArrayBuffer | null>(null);
-  const [encryptedAesKeyMaterialBase64, setEncryptedAesKeyMaterialBase64] = useState<string | null>(null);
-  const [decryptedAesKeyForVerification, setDecryptedAesKeyForVerification] = useState<CryptoKey | null>(null);
+  const [rawEncryptedAesKeyMaterial, setRawEncryptedAesKeyMaterial] = useState<string>("");
+  const [encryptedAesKeyMaterialBase64, setEncryptedAesKeyMaterialBase64] = useState<string>("");
   
   // Message Decryption
-  const [decryptedMessage, setDecryptedMessage] = useState<string | null>(null);
+  const [decryptedMessage, setDecryptedMessage] = useState<string>("");
+  const [decryptedAesKeyForVerification, setDecryptedAesKeyForVerification] = useState("");
 
   const [isClient, setIsClient] = useState(false);
   useEffect(() => {
@@ -47,7 +47,7 @@ export default function CrypticMessengerPage() {
   
   // Determine which AES key to use for final decryption
   // Priority: 1. AES key decrypted via RSA, 2. Original AES key
-  const aesKeyToUseForDecryption = decryptedAesKeyForVerification || aesKey;
+  const aesKeyToUseForDecryption = aesKey;
 
   return (
     <div className="container mx-auto p-4 md:p-8 min-h-screen flex flex-col items-center bg-[hsl(var(--app-background))]">
@@ -75,10 +75,12 @@ export default function CrypticMessengerPage() {
           <TabsContent value="message-encryption" className="rounded-lg shadow-xl bg-card p-6">
             <MessageEncryptionTab
               aesKey={aesKey}
-              encryptedMessageBase64={encryptedMessageBase64} setEncryptedMessageBase64={setEncryptedMessageBase64}
-              ivBase64={ivBase64} setIvBase64={setIvBase64}
-              setRawEncryptedMessage={setRawEncryptedMessage}
               setRawIv={setRawIv}
+              ivBase64={ivBase64} 
+              setIvBase64={setIvBase64}
+              setRawEncryptedMessage={setRawEncryptedMessage}
+              encryptedMessageBase64={encryptedMessageBase64} 
+              setEncryptedMessageBase64={setEncryptedMessageBase64}
             />
           </TabsContent>
           <TabsContent value="aes-key-ops" className="rounded-lg shadow-xl bg-card p-6">
