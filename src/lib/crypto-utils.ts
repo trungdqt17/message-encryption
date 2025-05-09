@@ -1,14 +1,15 @@
 // src/lib/crypto-utils.ts
-// Type-only import for WordArrayType and CipherParamsType remains.
-import type { WordArray as WordArrayType, CipherParams as CipherParamsType } from 'crypto-js';
-// Main import for CryptoJS library functionality.
 import CryptoJS from 'crypto-js';
+// Type-only import for WordArray and CipherParams from 'crypto-js'
+// These types represent instances (e.g., of CryptoJS.lib.WordArray).
+import type { WordArray as WordArrayType, CipherParams as CipherParamsType } from 'crypto-js';
 
 
 // Helper function to convert ArrayBuffer to CryptoJS.lib.WordArray
 function arrayBufferToWordArray(buffer: ArrayBuffer): WordArrayType {
   const typedArray = new Uint8Array(buffer);
-  return CryptoJS.lib.WordArray.create(typedArray as unknown as number[]);
+  // CryptoJS.lib.WordArray is a class/object with a create method
+  return CryptoJS.lib.WordArray.create(typedArray as any); 
 }
 
 // Helper function to convert CryptoJS.lib.WordArray to ArrayBuffer
@@ -96,50 +97,58 @@ export async function exportAesKeyToRawBase64(key: CryptoKey): Promise<string> {
 
 export async function encryptMessageAesGcm(
   message: string,
-  aesKey: CryptoKey
+  aesKey: CryptoKey // This is a Web Crypto API CryptoKey
 ): Promise<{ ciphertext: ArrayBuffer; iv: ArrayBuffer }> {
+  // Export the Web Crypto AES key to raw format to be used by CryptoJS
   const rawAesKeyBuffer = await window.crypto.subtle.exportKey('raw', aesKey);
-  const keyWordArray = arrayBufferToWordArray(rawAesKeyBuffer);
+  const keyWordArray = arrayBufferToWordArray(rawAesKeyBuffer); // Convert raw key to CryptoJS WordArray
 
-  // CryptoJS GCM usually expects a 12-byte IV.
+  // Generate IV (Initialization Vector) - CryptoJS GCM typically uses 12 bytes
   const ivArrayBuffer = window.crypto.getRandomValues(new Uint8Array(12));
-  const ivWordArray = arrayBufferToWordArray(ivArrayBuffer);
+  const ivWordArray = arrayBufferToWordArray(ivArrayBuffer); // Convert IV to CryptoJS WordArray
   
-  const messageUtf8 = CryptoJS.enc.Utf8.parse(message);
+  const messageUtf8 = CryptoJS.enc.Utf8.parse(message); // Parse message to CryptoJS WordArray (UTF-8)
 
+  // Encrypt using CryptoJS.AES.encrypt
+  // The result is a CipherParams object which includes the ciphertext
   const encrypted: CipherParamsType = CryptoJS.AES.encrypt(messageUtf8, keyWordArray, {
     iv: ivWordArray,
     mode: CryptoJS.mode.GCM,
     padding: CryptoJS.pad.NoPadding, // GCM does not use padding
   });
   
-  // encrypted.ciphertext is WordArray and is guaranteed present
+  // encrypted.ciphertext is a WordArray. Convert it to ArrayBuffer.
   const ciphertextArrayBuffer = wordArrayToArrayBuffer(encrypted.ciphertext);
 
-  return { ciphertext: ciphertextArrayBuffer, iv: ivArrayBuffer };
+  return { ciphertext: ciphertextArrayBuffer, iv: ivArrayBuffer }; // Return ArrayBuffer for ciphertext and IV
 }
 
 export async function decryptMessageAesGcm(
-  ciphertext: ArrayBuffer,
-  iv: ArrayBuffer,
-  aesKey: CryptoKey
+  ciphertext: ArrayBuffer, // Ciphertext as ArrayBuffer
+  iv: ArrayBuffer,         // IV as ArrayBuffer
+  aesKey: CryptoKey       // Web Crypto API CryptoKey
 ): Promise<string> {
+  // Export the Web Crypto AES key to raw format
   const rawAesKeyBuffer = await window.crypto.subtle.exportKey('raw', aesKey);
-  const keyWordArray = arrayBufferToWordArray(rawAesKeyBuffer);
-  const ivWordArray = arrayBufferToWordArray(iv);
-  const ciphertextWordArray = arrayBufferToWordArray(ciphertext);
+  const keyWordArray = arrayBufferToWordArray(rawAesKeyBuffer); // Convert to CryptoJS WordArray
 
-  // Create a CipherParams object for decryption using CryptoJS.lib.CipherParams.create
-  const cipherParamsInput: CipherParamsType = CryptoJS.lib.CipherParams.create({
-    ciphertext: ciphertextWordArray,
+  const ivWordArray = arrayBufferToWordArray(iv);                 // Convert IV to CryptoJS WordArray
+  const ciphertextWordArray = arrayBufferToWordArray(ciphertext); // Convert ciphertext to CryptoJS WordArray
+
+  // Create a CipherParams object for decryption input.
+  // This is what CryptoJS.AES.decrypt expects if the first argument isn't a base64/hex string.
+  const cipherParamsInput = CryptoJS.lib.CipherParams.create({
+    ciphertext: ciphertextWordArray
   });
 
+  // Decrypt using CryptoJS.AES.decrypt
   const decrypted: WordArrayType = CryptoJS.AES.decrypt(cipherParamsInput, keyWordArray, {
     iv: ivWordArray,
     mode: CryptoJS.mode.GCM,
-    padding: CryptoJS.pad.NoPadding, // GCM does not use padding
+    padding: CryptoJS.pad.NoPadding,
   });
   
+  // Convert the decrypted WordArray back to a UTF-8 string
   return decrypted.toString(CryptoJS.enc.Utf8);
 }
 
