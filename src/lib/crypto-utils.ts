@@ -1,14 +1,18 @@
 // src/lib/crypto-utils.ts
+// Type-only import for WordArrayType and CipherParamsType remains.
+import type { WordArray as WordArrayType, CipherParams as CipherParamsType } from 'crypto-js';
+// Main import for CryptoJS library functionality.
 import CryptoJS from 'crypto-js';
 
+
 // Helper function to convert ArrayBuffer to CryptoJS.lib.WordArray
-function arrayBufferToWordArray(buffer: ArrayBuffer): CryptoJS.lib.WordArray {
+function arrayBufferToWordArray(buffer: ArrayBuffer): WordArrayType {
   const typedArray = new Uint8Array(buffer);
   return CryptoJS.lib.WordArray.create(typedArray as unknown as number[]);
 }
 
 // Helper function to convert CryptoJS.lib.WordArray to ArrayBuffer
-function wordArrayToArrayBuffer(wordArray: CryptoJS.lib.WordArray): ArrayBuffer {
+function wordArrayToArrayBuffer(wordArray: WordArrayType): ArrayBuffer {
   const { words, sigBytes } = wordArray;
   const u8 = new Uint8Array(sigBytes);
   for (let i = 0; i < sigBytes; i++) {
@@ -103,13 +107,13 @@ export async function encryptMessageAesGcm(
   
   const messageUtf8 = CryptoJS.enc.Utf8.parse(message);
 
-  const encrypted = CryptoJS.AES.encrypt(messageUtf8, keyWordArray, {
+  const encrypted: CipherParamsType = CryptoJS.AES.encrypt(messageUtf8, keyWordArray, {
     iv: ivWordArray,
     mode: CryptoJS.mode.GCM,
     padding: CryptoJS.pad.NoPadding, // GCM does not use padding
   });
   
-  // encrypted.ciphertext is a WordArray
+  // encrypted.ciphertext is WordArray and is guaranteed present
   const ciphertextArrayBuffer = wordArrayToArrayBuffer(encrypted.ciphertext);
 
   return { ciphertext: ciphertextArrayBuffer, iv: ivArrayBuffer };
@@ -125,12 +129,12 @@ export async function decryptMessageAesGcm(
   const ivWordArray = arrayBufferToWordArray(iv);
   const ciphertextWordArray = arrayBufferToWordArray(ciphertext);
 
-  // Create a CipherParams object for decryption
-  const cipherParams = CryptoJS.lib.CipherParams.create({
+  // Create a CipherParams object for decryption using CryptoJS.lib.CipherParams.create
+  const cipherParamsInput: CipherParamsType = CryptoJS.lib.CipherParams.create({
     ciphertext: ciphertextWordArray,
   });
 
-  const decrypted = CryptoJS.AES.decrypt(cipherParams, keyWordArray, {
+  const decrypted: WordArrayType = CryptoJS.AES.decrypt(cipherParamsInput, keyWordArray, {
     iv: ivWordArray,
     mode: CryptoJS.mode.GCM,
     padding: CryptoJS.pad.NoPadding, // GCM does not use padding
