@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { OutputField } from './output-field';
 import { 
-  generateAesGcmKeyAsRaw,
+  generateAesKeyAsRaw,
   generateRsaKeyPairPem,
 } from '@/lib/crypto-utils';
 import { useToast } from '@/hooks/use-toast';
@@ -66,7 +66,7 @@ export function KeyGenerationTab({
     setIsGeneratingAes(true);
     setAesSuccess(false);
     try {
-      const newAesKey = await generateAesGcmKeyAsRaw();
+      const newAesKey = await generateAesKeyAsRaw();
       setAesKey(newAesKey);
       setAesKeyRawBase64(newAesKey);
       setAesSuccess(true);
@@ -103,7 +103,7 @@ export function KeyGenerationTab({
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-xl">
             <KeyIcon className="h-6 w-6 text-primary" />
-            AES Key (AES-GCM, 256-bit)
+            AES Key (AES-CBC, 256-bit)
           </CardTitle>
           <CardDescription>Generate a symmetric key for message encryption. Exported as Raw (Base64 encoded).</CardDescription>
         </CardHeader>

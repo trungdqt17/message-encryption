@@ -3,9 +3,13 @@
 // Encryption Dedicated Worker
 import CryptoJS from "crypto-js"
 
+const ENC_AES_MODE =  'CBC'
+const ENC_RSA_MODE = 'RSA-OAEP'
+const ENC_RSA_HASH = 'SHA-1'
+
 function generateAesCbcIv() {
   const buf = new Uint8Array(16)
-  window.crypto.getRandomValues(buf)
+  self.crypto.getRandomValues(buf)
   return Array.from(buf)
     .map(b => b.toString(16).padStart(2, "0"))
     .join("")
@@ -91,7 +95,7 @@ export function encryptAES(
       CryptoJS.enc.Base64.parse(encKey),
       {
         iv: CryptoJS.enc.Hex.parse(iv),
-        mode: CryptoJS.mode.CBC,
+        mode: CryptoJS.mode[ENC_AES_MODE],
         padding: CryptoJS.pad.Pkcs7,
       },
     ).toString()
@@ -115,7 +119,7 @@ export function decryptAES(
       CryptoJS.enc.Base64.parse(encKey),
       {
         iv: CryptoJS.enc.Hex.parse(ivKey),
-        mode: CryptoJS.mode.CBC,
+        mode: CryptoJS.mode[ENC_AES_MODE],
         padding: CryptoJS.pad.Pkcs7,
       },
     ).toString(CryptoJS.enc.Utf8)
@@ -132,7 +136,7 @@ export async function generateRsaKeyPairPem() {
   try {
     const keyPair = await self.crypto.subtle.generateKey(
       {
-        name: "RSA-OAEP",
+        name: ENC_RSA_MODE,
         modulusLength: 2048,
         publicExponent: new Uint8Array([1, 0, 1]),
         hash: "SHA-256",
@@ -154,11 +158,11 @@ export async function generateRsaKeyPairPem() {
   }
 
 }
-//generate AES-GCM key
-export async function generateAesGcmKeyAsRaw() {
+// generate AES-CBC key
+export async function generateAesKeyAsRaw() {
   try {
     const key = await self.crypto.subtle.generateKey(
-      { name: "AES-GCM", length: 256 },
+      { name: `AES-${ENC_AES_MODE}`, length: 256 },
       true,
       ["encrypt", "decrypt"],
     )
@@ -167,7 +171,7 @@ export async function generateAesGcmKeyAsRaw() {
     return arrayBufferToBase64(exportedKey)
   } catch (err) {
     throw new Error(
-      `Failed to generate Aes Gcm Key: ${err instanceof Error ? err.message : "Unknown error"}`,
+      `Failed to generate Aes Cbc Key: ${err instanceof Error ? err.message : "Unknown error"}`,
     )
   }
 }
@@ -181,7 +185,7 @@ async function deriveKeyFromPassword(
   const saltData = encoder.encode(salt || "e2ee_salt")
 
   // Tạo material key từ mật khẩu
-  const keyMaterial = await window.crypto.subtle.importKey(
+  const keyMaterial = await self.crypto.subtle.importKey(
     "raw",
     passwordData,
     { name: "PBKDF2" },
@@ -190,7 +194,7 @@ async function deriveKeyFromPassword(
   )
 
   // Tạo khóa AES-GCM từ PBKDF2
-  return window.crypto.subtle.deriveKey(
+  return self.crypto.subtle.deriveKey(
     {
       name: "PBKDF2",
       salt: saltData,
@@ -220,15 +224,15 @@ export async function encryptAesKeyMaterialWithRsa(publicKeyPem: string, aesKeyR
     .replace(/\s/g, '');
 
   try {
-    const binaryDer = Uint8Array.from(atob(pemBody), c => c.charCodeAt(0));
+    const binaryDerBuffer = base64ToArrayBuffer(pemBody);
 
     // 🟡 Không khai báo 'hash', trình duyệt sẽ dùng mặc định: SHA-1
-    const cryptoKey = await window.crypto.subtle.importKey(
+    const cryptoKey = await self.crypto.subtle.importKey(
       'spki',
-      binaryDer.buffer,
+      binaryDerBuffer,
       {
-        name: 'RSA-OAEP',
-        hash: 'SHA-1'
+        name: ENC_RSA_MODE,
+        hash: ENC_RSA_HASH
       },
       false,
       ['encrypt']
@@ -236,8 +240,8 @@ export async function encryptAesKeyMaterialWithRsa(publicKeyPem: string, aesKeyR
 
     const encodedText = new TextEncoder().encode(aesKeyRaw);
 
-    const encrypted = await window.crypto.subtle.encrypt(
-      { name: 'RSA-OAEP' },
+    const encrypted = await self.crypto.subtle.encrypt(
+      { name: ENC_RSA_MODE },
       cryptoKey,
       encodedText
     );
@@ -271,14 +275,14 @@ export async function decryptAesKeyMaterialWithRsa(privateKeyPem: string, encryp
       .replace(/\s/g, '');
 
     // Decode base64 to binary
-    const binaryDer = Uint8Array.from(atob(pemBody), c => c.charCodeAt(0));
+    const binaryDerBuffer = base64ToArrayBuffer(pemBody);
 
-    const cryptoKey = await window.crypto.subtle.importKey(
+    const cryptoKey = await self.crypto.subtle.importKey(
       'pkcs8',
-      binaryDer.buffer,
+      binaryDerBuffer,
       {
-        name: 'RSA-OAEP',
-        hash: 'SHA-1',
+        name: ENC_RSA_MODE,
+        hash: ENC_RSA_HASH,
       },
       false,
       ['decrypt']
@@ -287,8 +291,8 @@ export async function decryptAesKeyMaterialWithRsa(privateKeyPem: string, encryp
     let encryptedBuffer = base64ToArrayBuffer(encryptedAesRaw);
 
     // Decrypt
-    const decrypted = await window.crypto.subtle.decrypt(
-      { name: 'RSA-OAEP' },
+    const decrypted = await self.crypto.subtle.decrypt(
+      { name: ENC_RSA_MODE },
       cryptoKey,
       encryptedBuffer
     );
